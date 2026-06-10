@@ -1,0 +1,26 @@
+name: Domain Recon
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Target domain (e.g. example.com)'
+        required: true
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python recon.py
+        env:
+          TARGET_DOMAIN: ${{ inputs.domain }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}

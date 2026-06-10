@@ -38,6 +38,27 @@ def send_telegram(chat_id, text):
         print(f'send_telegram failed: {e}')
 
 
+def trigger_workflow_vuln(domain):
+    if not GH_TOKEN or not GH_REPO:
+        print('ERROR: GH_TOKEN or GH_REPO not set')
+        return
+    url = f'https://api.github.com/repos/{GH_REPO}/actions/workflows/vuln_scan.yml/dispatches'
+    payload = json.dumps({'ref': 'main', 'inputs': {'domain': domain}}).encode()
+    req = urllib.request.Request(url, data=payload, method='POST')
+    req.add_header('Authorization', f'Bearer {GH_TOKEN}')
+    req.add_header('Accept', 'application/vnd.github.v3+json')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('User-Agent', 'recon-bot')
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            print(f'Vuln workflow triggered: {r.status}')
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f'GitHub API error {e.code}: {body}')
+    except Exception as e:
+        print(f'trigger_workflow_vuln failed: {e}')
+
+
 def trigger_workflow(domain):
     if not GH_TOKEN or not GH_REPO:
         print('ERROR: GH_TOKEN or GH_REPO not set')
@@ -81,11 +102,24 @@ async def webhook(request: Request):
 
         threading.Thread(target=trigger_workflow, args=(domain,), daemon=True).start()
 
+    elif text.startswith('/vuln '):
+        domain = text[5:].strip()
+        if not domain or '.' not in domain:
+            send_telegram(chat_id, 'Usage: /vuln example.com')
+            return JSONResponse({'ok': True})
+
+        send_telegram(chat_id,
+            f'\U0001F525 Vuln scan started for <code>{domain}</code>!\n'
+            f'Results will appear in your channel in a few minutes.')
+
+        threading.Thread(target=trigger_workflow_vuln, args=(domain,), daemon=True).start()
+
     elif text in ['/start', '/help']:
         send_telegram(chat_id,
             '\U0001F50D <b>Domain Recon Bot</b>\n\n'
             'Commands:\n'
-            '<code>/domain example.com</code> - Start deep recon\n'
+            '<code>/domain example.com</code> - Recon (subs, ports, Exchange)\n'
+            '<code>/vuln example.com</code> - Vuln scan (Exchange CVEs, dir brute, RDP, default creds)\n'
             '<code>/help</code> - Show this\n\n'
             'Results will be posted to your Telegram channel.')
 

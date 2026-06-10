@@ -42,10 +42,13 @@ def trigger_workflow(gh_token, gh_repo, domain):
     req.add_header('User-Agent', 'recon-bot')
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            return r.status == 204
+            return True, ''
     except urllib.error.HTTPError as e:
-        print(f'GitHub API error: {e.code} {e.read().decode()}')
-        return False
+        body = e.read().decode()
+        print(f'GitHub API error: {e.code} {body}')
+        return False, f'HTTP {e.code}: {body}'
+    except Exception as e:
+        return False, str(e)
 
 
 def load_offset():
@@ -94,10 +97,11 @@ def main():
                 f'\U0001F680 Recon started for <code>{domain}</code>!\n'
                 f'Results will appear in your channel in a few minutes.')
 
-            if trigger_workflow(gh_token, gh_repo, domain):
+            success, err = trigger_workflow(gh_token, gh_repo, domain)
+            if success:
                 print(f'Triggered recon for {domain}')
             else:
-                send_message(bot_token, chat_id, '\U0000274C Failed to trigger recon. Check GH_TOKEN.')
+                send_message(bot_token, chat_id, f'\U0000274C Failed to trigger recon.\n<code>{err[:200]}</code>')
 
         elif text in ['/start', '/help']:
             send_message(bot_token, chat_id,

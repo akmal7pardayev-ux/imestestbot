@@ -20,17 +20,28 @@ if not BOT_TOKEN or not GH_TOKEN or not GH_REPO:
 
 
 def send_telegram(chat_id, text):
+    if not BOT_TOKEN:
+        print('ERROR: BOT_TOKEN not set')
+        return
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     data = urllib.parse.urlencode({
         'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML'
     }).encode()
     req = urllib.request.Request(url, data=data,
         headers={'Content-Type': 'application/x-www-form-urlencoded'})
-    with urllib.request.urlopen(req, timeout=10):
-        pass
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            resp = json.loads(r.read().decode())
+            if not resp.get('ok'):
+                print(f'Telegram API error: {resp}')
+    except Exception as e:
+        print(f'send_telegram failed: {e}')
 
 
 def trigger_workflow(domain):
+    if not GH_TOKEN or not GH_REPO:
+        print('ERROR: GH_TOKEN or GH_REPO not set')
+        return
     url = f'https://api.github.com/repos/{GH_REPO}/actions/workflows/recon.yml/dispatches'
     payload = json.dumps({'ref': 'main', 'inputs': {'domain': domain}}).encode()
     req = urllib.request.Request(url, data=payload, method='POST')
@@ -38,8 +49,14 @@ def trigger_workflow(domain):
     req.add_header('Accept', 'application/vnd.github.v3+json')
     req.add_header('Content-Type', 'application/json')
     req.add_header('User-Agent', 'recon-bot')
-    with urllib.request.urlopen(req, timeout=15):
-        pass
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            print(f'Workflow triggered: {r.status}')
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f'GitHub API error {e.code}: {body}')
+    except Exception as e:
+        print(f'trigger_workflow failed: {e}')
 
 
 @app.post('/webhook')
@@ -83,6 +100,20 @@ async def root():
     <p>Set webhook: <a href="/setup">/setup</a></p>
     </body></html>
     '''
+
+
+@app.get('/webhookinfo')
+async def webhook_info():
+    if not BOT_TOKEN:
+        return {'error': 'BOT_TOKEN not set'}
+    url = f'https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo'
+    req = urllib.request.Request(url)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            result = json.loads(r.read().decode())
+            return result
+    except Exception as e:
+        return {'error': str(e)}
 
 
 @app.get('/setup')

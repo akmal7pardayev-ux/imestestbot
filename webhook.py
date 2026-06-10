@@ -6,14 +6,17 @@ import urllib.request
 import urllib.error
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 
 app = FastAPI()
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '')
-GH_TOKEN = os.environ.get('GH_TOKEN', '')
-GH_REPO = os.environ.get('GH_REPO', '')
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+GH_TOKEN = os.environ.get('GH_TOKEN')
+GH_REPO = os.environ.get('GH_REPO')
+
+if not BOT_TOKEN or not GH_TOKEN or not GH_REPO:
+    print('WARNING: Missing one or more required env vars (BOT_TOKEN, GH_TOKEN, GH_REPO)')
 
 
 def send_telegram(chat_id, text):
@@ -72,19 +75,30 @@ async def webhook(request: Request):
     return JSONResponse({'ok': True})
 
 
-@app.get('/')
+@app.get('/', response_class=HTMLResponse)
 async def root():
-    return {'status': 'running'}
+    return '''
+    <html><body style="background:#111;color:#0f0;font-family:monospace;padding:40px">
+    <h1>Recon Bot is running</h1>
+    <p>Set webhook: <a href="/setup">/setup</a></p>
+    </body></html>
+    '''
 
 
 @app.get('/setup')
-async def setup():
-    url = f'https://api.telegram.org/bot{BOT_TOKEN}/setWebhook'
-    host = os.environ.get('RENDER_EXTERNAL_URL', 'https://example.com')
+async def setup(request: Request):
+    host = os.environ.get('RENDER_EXTERNAL_URL',
+        str(request.base_url).rstrip('/'))
     webhook_url = f'{host}/webhook'
+
+    url = f'https://api.telegram.org/bot{BOT_TOKEN}/setWebhook'
     data = urllib.parse.urlencode({'url': webhook_url}).encode()
     req = urllib.request.Request(url, data=data,
         headers={'Content-Type': 'application/x-www-form-urlencoded'})
     with urllib.request.urlopen(req, timeout=10) as r:
         result = json.loads(r.read().decode())
-    return result
+
+    return {
+        'webhook_url': webhook_url,
+        'telegram_response': result,
+    }

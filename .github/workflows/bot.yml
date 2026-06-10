@@ -11,6 +11,8 @@ env:
 jobs:
   poll:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,9 +23,12 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_REPO: ${{ github.repository }}
+        continue-on-error: true
       - run: |
           git config user.name "recon-bot"
           git config user.email "bot@localhost"
           git add offset.json
           git diff --staged --quiet || git commit -m "Update bot offset"
           git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -214,9 +214,9 @@ def format_report(domain, ip, dns, subs, live_hosts, open_ports, exchange, histo
 
     if open_ports:
         msg += '<b>\U0001F5A5 Open Ports:</b>\n'
-        for p, info in open_ports:
+        for ip_addr, p, info in open_ports:
             banner = f' - {info}' if info else ''
-            msg += f'<code>{p}</code>{banner}\n'
+            msg += f'<code>{ip_addr}:{p}</code>{banner}\n'
         msg += '\n'
 
     if history:
@@ -350,8 +350,11 @@ def main():
     if len(msg) > 4000:
         msg = msg[:4000] + '\n\n... truncated'
 
-    send_telegram(bot_token, chat_id, msg)
-    log('Report sent!')
+    try:
+        send_telegram(bot_token, chat_id, msg)
+        log('Report sent!')
+    except Exception as e:
+        log(f'Failed to send report: {e}')
 
 
 if __name__ == '__main__':

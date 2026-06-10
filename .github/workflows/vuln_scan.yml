@@ -1,0 +1,24 @@
+name: Vuln Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Target domain (e.g. example.com)'
+        required: true
+        type: string
+
+jobs:
+  vuln_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet urllib3 2>/dev/null || true
+      - run: python vuln_scan.py
+        env:
+          TARGET_DOMAIN: ${{ inputs.domain }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
